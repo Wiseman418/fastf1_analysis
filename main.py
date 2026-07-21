@@ -6,17 +6,20 @@ fastf1.Cache.enable_cache('cache')
 
 # create a function to take a user's inputs to allow the analysis of any race session
 def analyze_session(year, track, session_type, driver):
-    # take information for the session and load it
-    year = int(input("Enter the year of the race"))
-    track = input("Enter the track name")
-    session_type = input("Enter the session type (R for race, Q for qualifying, S for sprint, FP1, FP2, FP3 for practice, SQ for sprint qualifying): ")
-    driver = input("Enter the driver's last name")
+
+    # load session
     session = fastf1.get_session(year, track, session_type)
     session.load()
+    
     analysis_choice = input("Do you want to analyze the fastest lap or all laps? (fastest/all): ")
+
+    laps = session.laps.pick_drivers(driver)
+    
+    if laps.empty:
+        print(f"No laps found for driver '{driver}' in the {session_type}")
+        return
+
     if analysis_choice == 'fastest':
-        # Get all laps for the specified driver
-        laps = session.laps.pick_driver(driver)
         # Pick the fastest lap
         lap = laps.pick_fastest()
         # Get telemetry (speed, distance, etc.) for that lap
@@ -26,12 +29,11 @@ def analyze_session(year, track, session_type, driver):
         plt.xlabel('Distance (m)')
         plt.ylabel('Speed (km/h)')
         plt.title(f'{driver} Fastest Lap Speed Trace')
+        plt.tight_layout()
         plt.show()
     elif analysis_choice == 'all':
-        # Get all laps for the specified driver
-        laps = session.laps.pick_driver(driver)
         # Plot speed vs distance for all laps
-        for lap in laps.iterlaps():
+        for _, lap in laps.iterlaps():
             tel = lap.get_telemetry()
             plt.plot(tel['Distance'], tel['Speed'], label=f'Lap {lap.LapNumber}')
         plt.xlabel('Distance (m)')
@@ -39,6 +41,14 @@ def analyze_session(year, track, session_type, driver):
         plt.title(f'{driver} All Laps Speed Trace')
         plt.legend()
         plt.show()
+    else:
+        print("Invalid choice. Please enter 'fastest' or 'all'.")
+
+
+year = int(input("Enter the year of the race (e.g., 2023): "))
+track = input("Enter the track name (e.g., 'Monza', 'Silverstone'): ")
+session_type = input("Enter the session type (e.g., 'FP1', 'FP2', 'FP3', 'Q', 'R'): ")
+driver = input("Enter the driver's code (e.g., 'VER' for Verstappen): ")
 
 analyze_session(year, track, session_type, driver)
 
