@@ -65,39 +65,41 @@ def lap_time_evolution(year, track, session_type, driver):
     # load session
     session = fastf1.get_session(year, track, session_type)
     session.load()
+
+    driver_laps = session.laps.pick_drivers(driver)
+
+    no_pits = driver_laps[
+        driver_laps['PitOutTime'].isnull() &
+        driver_laps['PitInTime'].isnull()]
     
-    # filter laps to remove in and out laps and by tyre compound
-    soft_laps = session.laps[(session.laps[driver] == driver) & 
-                             (session.laps['Compound'] == 'SOFT') & 
-                             (session.laps['LapTime'].notnull() & 
-                              session.laps.pick_quicklaps().reset_index())]
-    med_laps = session.laps[(session.laps[driver] == driver) & 
-                            (session.laps['Compound'] == 'MEDIUM') &
-                            (session.laps['LapTime'].notnull() & 
-                             session.laps.pick_quicklaps().reset_index())]
-    hard_laps = session.laps[(session.laps[driver] == driver) & 
-                            (session.laps['Compound'] == 'HARD') &
-                            (session.laps['LapTime'].notnull() & 
-                             session.laps.pick_quicklaps().reset_index())]
+    #quick_laps = no_pits.pick_quicklaps()
 
-    # convert lap times to seconds for plotting
-    soft_lap_times = soft_laps['LapTime'].dt.total_seconds()
-    med_lap_times = med_laps['LapTime'].dt.total_seconds()
-    hard_lap_times = hard_laps['LapTime'].dt.total_seconds()
+    no_pits['TrackStatus'] = no_pits['TrackStatus'].astype(str)
 
+    mask = no_pits['TrackStatus'].str.contains('4|6', regex=True)
+    clean_laps = no_pits[~mask]
 
-    #plot figure
-    plt.figure(figsize=(12,6))
-    plt.plot(soft_laps['LapNumber'], soft_lap_times, marker='o')
-    plt.plot(med_laps['LapNumber'], med_lap_times, marker='s')
-    plt.plot(hard_laps['LapNumber'], hard_lap_times, marker='^')
+    lap_times = clean_laps['LapTime'].dt.total_seconds() 
+
+    compound_colours = {
+        'SOFT': 'red',
+        'MEDIUM': 'yellow',
+        'HARD': 'white',
+        'INTERMEDIATE': 'green',
+        'WET': 'blue'}
+
+    colours = [compound_colours.get(lap['Compound'], 'grey') for _, lap in clean_laps.iterrows()]
+
+    plt.figure(figsize=(12, 6))
+    plt.scatter(clean_laps['LapNumber'], lap_times, c=colours, edgecolors='black')
+    plt.plot(clean_laps['LapNumber'], lap_times, color='black', linestyle='--', alpha=0.5)
     plt.xlabel('Lap Number')
+    plt.xlim(1, clean_laps['LapNumber'].max() + 1)
     plt.ylabel('Lap Time (s)')
     plt.title(f'{driver} Lap Time Evolution')
     plt.grid(True)
     plt.show()
-
-
+    
 def main():
     choice = input("Do you want to analyze speed trace, tyre strategy, or lap time evolution? (speed/tyre/lap): ")
     if choice == 'speed':
