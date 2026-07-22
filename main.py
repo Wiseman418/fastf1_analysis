@@ -65,15 +65,32 @@ def lap_time_evolution(year, track, session_type, driver):
     # load session
     session = fastf1.get_session(year, track, session_type)
     session.load()
-
-    laps = session.laps.pick_drivers(driver)
+    
+    # filter laps to remove in and out laps and by tyre compound
+    soft_laps = session.laps[(session.laps[driver] == driver) & 
+                             (session.laps['Compound'] == 'SOFT') & 
+                             (session.laps['LapTime'].notnull() & 
+                              session.laps.pick_quicklaps().reset_index())]
+    med_laps = session.laps[(session.laps[driver] == driver) & 
+                            (session.laps['Compound'] == 'MEDIUM') &
+                            (session.laps['LapTime'].notnull() & 
+                             session.laps.pick_quicklaps().reset_index())]
+    hard_laps = session.laps[(session.laps[driver] == driver) & 
+                            (session.laps['Compound'] == 'HARD') &
+                            (session.laps['LapTime'].notnull() & 
+                             session.laps.pick_quicklaps().reset_index())]
 
     # convert lap times to seconds for plotting
-    lap_times = laps['LapTime'].dt.total_seconds()
+    soft_lap_times = soft_laps['LapTime'].dt.total_seconds()
+    med_lap_times = med_laps['LapTime'].dt.total_seconds()
+    hard_lap_times = hard_laps['LapTime'].dt.total_seconds()
+
 
     #plot figure
     plt.figure(figsize=(12,6))
-    plt.plot(laps['LapNumber'], lap_times, marker='o')
+    plt.plot(soft_laps['LapNumber'], soft_lap_times, marker='o')
+    plt.plot(med_laps['LapNumber'], med_lap_times, marker='s')
+    plt.plot(hard_laps['LapNumber'], hard_lap_times, marker='^')
     plt.xlabel('Lap Number')
     plt.ylabel('Lap Time (s)')
     plt.title(f'{driver} Lap Time Evolution')
@@ -102,8 +119,5 @@ def main():
         lap_time_evolution(year, track, session_type, driver)
     else:
         print("Invalid choice. Please enter 'speed', 'tyre', or 'lap'.")
-    
+
 main()
-
-# speed_trace(year, track, session_type, driver)
-
