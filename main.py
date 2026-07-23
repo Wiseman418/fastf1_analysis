@@ -1,5 +1,7 @@
 import fastf1
 import matplotlib.pyplot as plt
+import seaborn as sns
+import fastf1.plotting
 
 # Turn on the cache (this makes future runs faster)
 fastf1.Cache.enable_cache('cache')
@@ -99,9 +101,71 @@ def lap_time_evolution(year, track, session_type, driver):
     plt.title(f'{driver} Lap Time Evolution')
     plt.grid(True)
     plt.show()
+
+def lap_time_distributions():
+    fastf1.plotting.setup_mpl(mpl_timedelta_support=True, color_scheme='fastf1')
+
+    year = int(input("Enter the year of the race (e.g., 2023): "))
+    track = input("Enter the track name (e.g., 'Monza', 'Silverstone'): ")
+    session_type = input("Enter the session type (e.g., 'FP1', 'FP2', 'FP3', 'Q', 'R'): ")
+
+    # Load the race session
+    session = fastf1.get_session(year, track, session_type)
+    session.load()
+
+    drivers = session.drivers
+    # Filter out slow laps (yellow flag, VSC, pitstops etc.)
+    driver_laps = session.laps.pick_quicklaps()
+    driver_laps = driver_laps.reset_index()
+
+    # To plot the drivers by finishing order,
+    # we need to get their three-letter abbreviations in the finishing order
+    finishing_order = [session.get_driver(i)["Abbreviation"] for i in drivers]
+    print(finishing_order)
+
+    # Create the figure
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    # Seaborn doesn't have proper timedelta support,
+    # so we have to convert timedelta to float (in seconds)
+    driver_laps["LapTime(s)"] = driver_laps["LapTime"].dt.total_seconds()
+
+    # First create the violin plots to show the distributions
+    sns.violinplot(data=driver_laps,
+               x="Driver",
+               y="LapTime(s)",
+               hue="Driver",
+               inner=None,
+               density_norm="area",
+               order=finishing_order,
+               palette=fastf1.plotting.get_driver_color_mapping(session=session)
+               )
+
+    # Then use the swarm plot to show the actual laptimes
+    sns.swarmplot(data=driver_laps,
+              x="Driver",
+              y="LapTime(s)",
+              order=finishing_order,
+              hue="Compound",
+              palette=fastf1.plotting.get_compound_mapping(session=session),
+              hue_order=["SOFT", "MEDIUM", "HARD"],
+              linewidth=0,
+              size=4,
+              )
+
+    # Make the plot more aesthetic
+    ax.set_xlabel("Driver")
+    ax.set_ylabel("Lap Time (s)")
+    plt.suptitle(f"{year} {track} Grand Prix Lap Time Distributions")
+    sns.despine(left=True, bottom=True)
+
+    plt.tight_layout()
+    plt.show()
+
+
     
 def main():
-    choice = input("Do you want to analyze speed trace, tyre strategy, or lap time evolution? (speed/tyre/lap): ")
+    choice = input("Do you want to analyze speed trace, tyre strategy, lap time evolution, or lap time distributions? (speed/tyre/lap/distribution): ")
     if choice == 'speed':
         year = int(input("Enter the year of the race (e.g., 2023): "))
         track = input("Enter the track name (e.g., 'Monza', 'Silverstone'): ")
@@ -119,7 +183,9 @@ def main():
         session_type = input("Enter the session type (e.g., 'FP1', 'FP2', 'FP3', 'Q', 'R'): ")
         driver = input("Enter the driver's code (e.g., 'VER' for Verstappen): ")
         lap_time_evolution(year, track, session_type, driver)
+    elif choice == 'distribution':
+        lap_time_distributions()
     else:
-        print("Invalid choice. Please enter 'speed', 'tyre', or 'lap'.")
+        print("Invalid choice. Please enter 'speed', 'tyre', 'lap', or 'distribution'.")
 
 main()
